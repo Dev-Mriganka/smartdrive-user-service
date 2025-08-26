@@ -27,19 +27,19 @@ public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByEmail(String email);
 
     /**
+     * Find user by email verification token
+     */
+    Optional<User> findByEmailVerificationToken(String token);
+
+    /**
      * Check if username exists
      */
-    boolean existsByUsername(String username);
+    Boolean existsByUsername(String username);
 
     /**
      * Check if email exists
      */
-    boolean existsByEmail(String email);
-
-    /**
-     * Find user by email verification token
-     */
-    Optional<User> findByEmailVerificationToken(String token);
+    Boolean existsByEmail(String email);
 
     /**
      * Find users with expired verification tokens
@@ -72,4 +72,10 @@ public interface UserRepository extends JpaRepository<User, Long> {
      * Find users with failed login attempts
      */
     List<User> findByFailedLoginAttemptsGreaterThan(Integer attempts);
+
+    /**
+     * Find unverified users with expired tokens
+     */
+    @Query("SELECT u FROM User u WHERE u.isEmailVerified = false AND u.emailVerificationExpiresAt < :now")
+    List<User> findUnverifiedUsersWithExpiredTokens(@Param("now") LocalDateTime now);
 }

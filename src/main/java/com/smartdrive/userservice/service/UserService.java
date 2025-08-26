@@ -18,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -71,8 +72,12 @@ public class UserService {
             .bio(request.getBio())
             .isEnabled(true)
             .isEmailVerified(false)
-            .roles(Set.of(defaultRole))
             .build();
+        
+        // Set roles using a mutable set
+        Set<Role> roles = new HashSet<>();
+        roles.add(defaultRole);
+        user.setRoles(roles);
         
         User savedUser = userRepository.save(user);
         

@@ -14,6 +14,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.http.HttpMethod;
 
 /**
  * Security configuration for User Service
@@ -59,13 +60,16 @@ public class SecurityConfig {
                 .requestMatchers("/actuator/health", "/actuator/info").permitAll()
                 
                 // Registration endpoint (public)
-                .requestMatchers("/api/v1/users/register").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/v1/users/register").permitAll()
                 
                 // Email verification endpoint (public)
-                .requestMatchers("/api/v1/users/verify").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/v1/users/verify-email").permitAll()
                 
+                // Internal endpoints for auth-service
+                .requestMatchers("/api/v1/users/verify-credentials", "/api/v1/users/{username}/token-claims", "/api/v1/users/{username}/profile").permitAll()
+
                 // Admin endpoints
-                .requestMatchers("/api/v1/admin/**").hasRole("SMARTDRIVE_ADMIN")
+                .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                 
                 // All other endpoints require authentication
                 .anyRequest().authenticated()

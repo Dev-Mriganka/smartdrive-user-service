@@ -1,7 +1,9 @@
 package com.smartdrive.userservice.controller;
 
 import com.smartdrive.userservice.dto.CredentialVerificationRequest;
+import com.smartdrive.userservice.dto.EmailVerificationRequest;
 import com.smartdrive.userservice.dto.TokenClaimsResponse;
+import com.smartdrive.userservice.dto.UserRegistrationRequest;
 import com.smartdrive.userservice.service.AuthService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -25,6 +27,46 @@ import java.util.Map;
 public class AuthController {
 
     private final AuthService authService;
+
+    /**
+     * Register a new user (public endpoint)
+     */
+    @PostMapping("/register")
+    public ResponseEntity<Map<String, String>> registerUser(@Valid @RequestBody UserRegistrationRequest registrationRequest) {
+        log.info("🚀 User registration request received for email: {}", registrationRequest.getEmail());
+        try {
+            authService.registerUser(registrationRequest);
+            Map<String, String> response = new HashMap<>();
+            response.put("message", "Registration successful. Please check your email to verify your account.");
+            return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        } catch (Exception e) {
+            log.error("❌ Error during user registration for email: {}", registrationRequest.getEmail(), e);
+            Map<String, String> errorResponse = new HashMap<>();
+            errorResponse.put("error", "registration_failed");
+            errorResponse.put("message", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+        }
+    }
+
+    /**
+     * Verify user email (public endpoint)
+     */
+    @GetMapping("/verify-email")
+    public ResponseEntity<Map<String, String>> verifyEmail(@RequestParam("token") String token) {
+        log.info("✉️ Email verification request received for token: {}", token);
+        try {
+            authService.verifyEmail(token);
+            Map<String, String> response = new HashMap<>();
+            response.put("message", "Email verified successfully.");
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("❌ Error during email verification for token: {}", token, e);
+            Map<String, String> errorResponse = new HashMap<>();
+            errorResponse.put("error", "verification_failed");
+            errorResponse.put("message", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+        }
+    }
 
     /**
      * Verify user credentials (internal endpoint for Authorization Server)

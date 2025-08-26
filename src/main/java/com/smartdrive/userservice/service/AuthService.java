@@ -1,17 +1,25 @@
 package com.smartdrive.userservice.service;
 
 import com.smartdrive.userservice.dto.TokenClaimsResponse;
+import com.smartdrive.userservice.dto.UserRegistrationRequest;
+import com.smartdrive.userservice.model.Role;
+import com.smartdrive.userservice.model.Role.RoleType;
 import com.smartdrive.userservice.model.User;
+import com.smartdrive.userservice.repository.RoleRepository;
 import com.smartdrive.userservice.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -20,8 +28,9 @@ import java.util.stream.Collectors;
 public class AuthService {
 
     private final UserRepository userRepository;
+    private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
-    
+
     @Value("${auth.service.internal.key:internal-auth-key}")
     private String internalAuthKey;
 
@@ -37,42 +46,37 @@ public class AuthService {
      */
     public boolean verifyCredentials(String username, String password) {
         log.info("🔐 Verifying credentials for user: {}", username);
-        
+
         try {
             User user = userRepository.findByUsername(username)
                     .orElse(null);
-            
+
             if (user == null) {
                 log.warn("❌ User not found: {}", username);
                 return false;
             }
-            
+
             if (!user.getIsEnabled()) {
-                log.warn("❌ User account is disabled: {}", username);
+                log.warn("❌ Account disabled for user: {}", username);
                 return false;
             }
-            
-            if (user.isAccountLocked()) {
-                log.warn("❌ User account is locked: {}", username);
+
+            if (!user.getIsEmailVerified()) {
+                log.warn("❌ Email not verified for user: {}. Please verify your email first.", username);
+                // Returning false prevents login for unverified emails
                 return false;
             }
-            
-            boolean isValid = passwordEncoder.matches(password, user.getPassword());
-            
-            if (isValid) {
-                // Reset failed login attempts on successful login
-                user.resetFailedLoginAttempts();
+
+            if (passwordEncoder.matches(password, user.getPassword())) {
+                log.info("✅ Password matched for user: {}", username);
+                user.setLastLoginAt(LocalDateTime.now());
                 userRepository.save(user);
-                log.info("✅ Credential verification successful for user: {}", username);
+                return true;
             } else {
-                // Increment failed login attempts
-                user.incrementFailedLoginAttempts();
-                userRepository.save(user);
-                log.warn("❌ Credential verification failed for user: {}", username);
+                log.warn("❌ Invalid password for user: {}", username);
+                return false;
             }
-            
-            return isValid;
-            
+
         } catch (Exception e) {
             log.error("❌ Error during credential verification for user: {}", username, e);
             return false;
@@ -83,15 +87,15 @@ public class AuthService {
      * Get user token claims for JWT generation
      */
     public TokenClaimsResponse getTokenClaims(String username) {
-        log.info("👤 Getting token claims for user: {}", username);
-        
+        log.info("👤 Retrieving token claims for user: {}", username);
+
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("User not found: " + username));
-        
-        List<String> roles = user.getAuthorities().stream()
-                .map(authority -> authority.getAuthority())
+
+        List<String> roles = user.getRoles().stream()
+                .map(role -> "ROLE_" + role.getName().name())
                 .collect(Collectors.toList());
-        
+
         return TokenClaimsResponse.builder()
                 .userId(user.getId())
                 .username(user.getUsername())
@@ -109,10 +113,10 @@ public class AuthService {
      */
     public Map<String, Object> getUserProfile(String username) {
         log.info("👤 Getting user profile for: {}", username);
-        
+
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("User not found: " + username));
-        
+
         Map<String, Object> profile = new HashMap<>();
         profile.put("id", user.getId());
         profile.put("username", user.getUsername());
@@ -127,7 +131,67 @@ public class AuthService {
         profile.put("twoFactorEnabled", user.getTwoFactorEnabled());
         profile.put("createdAt", user.getCreatedAt());
         profile.put("updatedAt", user.getUpdatedAt());
-        
+
         return profile;
+    }
+
+    @Transactional
+    public User registerUser(UserRegistrationRequest request) {
+        log.info("Attempting to register user with email: {}", request.getEmail());
+
+        if (userRepository.existsByEmail(request.getEmail())) {
+            log.warn("Registration failed: Email already in use - {}", request.getEmail());
+            throw new IllegalStateException("An account with this email already exists.");
+        }
+
+        if (userRepository.existsByUsername(request.getUsername())) {
+            log.warn("Registration failed: Username already taken - {}", request.getUsername());
+            throw new IllegalStateException("This username is already taken.");
+        }
+
+        Role userRole = roleRepository.findByName(RoleType.SMARTDRIVE_USER)
+                .orElseThrow(() -> new IllegalStateException("Default user role not found."));
+
+        User user = User.builder()
+                .username(request.getUsername())
+                .email(request.getEmail())
+                .password(passwordEncoder.encode(request.getPassword()))
+                .firstName(request.getFirstName())
+                .lastName(request.getLastName())
+                .roles(Set.of(userRole))
+                .isEnabled(true) // Enabled by default, but email not verified
+                .isEmailVerified(false)
+                .emailVerificationToken(UUID.randomUUID().toString())
+                .emailVerificationExpiresAt(LocalDateTime.now().plusHours(24))
+                .build();
+
+        userRepository.save(user);
+        log.info("User registered successfully with email: {}. Verification token: {}", user.getEmail(), user.getEmailVerificationToken());
+
+        // In a real application, you would trigger an email service here
+        // sendVerificationEmail(user.getEmail(), user.getEmailVerificationToken());
+
+        return user;
+    }
+
+    @Transactional
+    public void verifyEmail(String token) {
+        log.info("Attempting to verify email with token: {}", token);
+
+        User user = userRepository.findByEmailVerificationToken(token)
+                .orElseThrow(() -> new IllegalStateException("Invalid verification token."));
+
+        if (user.getEmailVerificationExpiresAt().isBefore(LocalDateTime.now())) {
+            log.warn("Verification failed: Token has expired for user {}", user.getEmail());
+            // Optionally, generate a new token and resend
+            throw new IllegalStateException("Verification token has expired.");
+        }
+
+        user.setIsEmailVerified(true);
+        user.setEmailVerificationToken(null);
+        user.setEmailVerificationExpiresAt(null);
+        userRepository.save(user);
+
+        log.info("Email verified successfully for user: {}", user.getEmail());
     }
 }
