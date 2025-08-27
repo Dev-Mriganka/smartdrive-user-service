@@ -1,20 +1,28 @@
 package com.smartdrive.userservice.controller;
 
+import java.util.HashMap;
+import java.util.Map;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
 import com.smartdrive.userservice.dto.CredentialVerificationRequest;
-import com.smartdrive.userservice.dto.EmailVerificationRequest;
 import com.smartdrive.userservice.dto.TokenClaimsResponse;
 import com.smartdrive.userservice.dto.UserRegistrationRequest;
 import com.smartdrive.userservice.service.AuthService;
+import com.smartdrive.userservice.service.UserService;
+
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-
-import java.util.HashMap;
-import java.util.Map;
 
 /**
  * Controller for authentication-related operations
@@ -27,15 +35,19 @@ import java.util.Map;
 public class AuthController {
 
     private final AuthService authService;
+    private final UserService userService;
 
     /**
      * Register a new user (public endpoint)
      */
     @PostMapping("/register")
-    public ResponseEntity<Map<String, String>> registerUser(@Valid @RequestBody UserRegistrationRequest registrationRequest) {
+    public ResponseEntity<Map<String, String>> registerUser(
+            @Valid @RequestBody UserRegistrationRequest registrationRequest,
+            HttpServletRequest request) {
         log.info("🚀 User registration request received for email: {}", registrationRequest.getEmail());
         try {
-            authService.registerUser(registrationRequest);
+            String clientIp = getClientIpAddress(request);
+            userService.registerUser(registrationRequest, clientIp);
             Map<String, String> response = new HashMap<>();
             response.put("message", "Registration successful. Please check your email to verify your account.");
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
@@ -75,34 +87,33 @@ public class AuthController {
     public ResponseEntity<Map<String, Object>> verifyCredentials(
             @Valid @RequestBody CredentialVerificationRequest request,
             HttpServletRequest httpRequest) {
-        
+
         log.info("🔐 Credential verification request for user: {}", request.getUsername());
-        
+
         // Verify internal authentication
         String internalAuthHeader = httpRequest.getHeader("X-Internal-Auth");
         if (!authService.validateInternalAuth(internalAuthHeader)) {
             log.warn("❌ Unauthorized internal request from: {}", getClientIpAddress(httpRequest));
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of(
-                "error", "unauthorized",
-                "message", "Invalid internal authentication"
-            ));
+                    "error", "unauthorized",
+                    "message", "Invalid internal authentication"));
         }
-        
+
         try {
             boolean isValid = authService.verifyCredentials(request.getUsername(), request.getPassword());
-            
+
             Map<String, Object> response = new HashMap<>();
             response.put("valid", isValid);
             response.put("username", request.getUsername());
-            
+
             if (isValid) {
                 log.info("✅ Credential verification successful for user: {}", request.getUsername());
             } else {
                 log.warn("❌ Credential verification failed for user: {}", request.getUsername());
             }
-            
+
             return ResponseEntity.ok(response);
-            
+
         } catch (Exception e) {
             log.error("❌ Error during credential verification for user: {}", request.getUsername(), e);
             Map<String, Object> errorResponse = new HashMap<>();
@@ -113,28 +124,28 @@ public class AuthController {
     }
 
     /**
-     * Get user token claims for JWT generation (internal endpoint for Authorization Server)
+     * Get user token claims for JWT generation (internal endpoint for Authorization
+     * Server)
      */
     @GetMapping("/{username}/token-claims")
     public ResponseEntity<Map<String, Object>> getTokenClaims(
             @PathVariable String username,
             HttpServletRequest httpRequest) {
-        
+
         log.info("👤 Token claims request for user: {}", username);
-        
+
         // Verify internal authentication
         String internalAuthHeader = httpRequest.getHeader("X-Internal-Auth");
         if (!authService.validateInternalAuth(internalAuthHeader)) {
             log.warn("❌ Unauthorized internal request from: {}", getClientIpAddress(httpRequest));
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of(
-                "error", "unauthorized",
-                "message", "Invalid internal authentication"
-            ));
+                    "error", "unauthorized",
+                    "message", "Invalid internal authentication"));
         }
-        
+
         try {
             TokenClaimsResponse claims = authService.getTokenClaims(username);
-            
+
             Map<String, Object> response = new HashMap<>();
             response.put("user_id", claims.getUserId());
             response.put("username", claims.getUsername());
@@ -144,10 +155,10 @@ public class AuthController {
             response.put("roles", claims.getRoles());
             response.put("is_enabled", claims.getIsEnabled());
             response.put("is_email_verified", claims.getIsEmailVerified());
-            
+
             log.info("✅ Token claims retrieved successfully for user: {}", username);
             return ResponseEntity.ok(response);
-            
+
         } catch (Exception e) {
             log.error("❌ Error retrieving token claims for user: {}", username, e);
             Map<String, Object> errorResponse = new HashMap<>();
@@ -158,31 +169,31 @@ public class AuthController {
     }
 
     /**
-     * Get user profile for userinfo endpoint (internal endpoint for Authorization Server)
+     * Get user profile for userinfo endpoint (internal endpoint for Authorization
+     * Server)
      */
     @GetMapping("/{username}/profile")
     public ResponseEntity<Map<String, Object>> getUserProfile(
             @PathVariable String username,
             HttpServletRequest httpRequest) {
-        
+
         log.info("👤 User profile request for user: {}", username);
-        
+
         // Verify internal authentication
         String internalAuthHeader = httpRequest.getHeader("X-Internal-Auth");
         if (!authService.validateInternalAuth(internalAuthHeader)) {
             log.warn("❌ Unauthorized internal request from: {}", getClientIpAddress(httpRequest));
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of(
-                "error", "unauthorized",
-                "message", "Invalid internal authentication"
-            ));
+                    "error", "unauthorized",
+                    "message", "Invalid internal authentication"));
         }
-        
+
         try {
             Map<String, Object> profile = authService.getUserProfile(username);
-            
+
             log.info("✅ User profile retrieved successfully for user: {}", username);
             return ResponseEntity.ok(profile);
-            
+
         } catch (Exception e) {
             log.error("❌ Error retrieving user profile for user: {}", username, e);
             Map<String, Object> errorResponse = new HashMap<>();
@@ -200,12 +211,12 @@ public class AuthController {
         if (xForwardedFor != null && !xForwardedFor.isEmpty() && !"unknown".equalsIgnoreCase(xForwardedFor)) {
             return xForwardedFor.split(",")[0];
         }
-        
+
         String xRealIp = request.getHeader("X-Real-IP");
         if (xRealIp != null && !xRealIp.isEmpty() && !"unknown".equalsIgnoreCase(xRealIp)) {
             return xRealIp;
         }
-        
+
         return request.getRemoteAddr();
     }
 }

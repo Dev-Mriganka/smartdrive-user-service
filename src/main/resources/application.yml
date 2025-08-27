@@ -33,14 +33,16 @@ spring:
   mail:
     host: smtp.gmail.com
     port: 587
-    username: ${SMTP_USERNAME:noreply@smartdrive.com}
-    password: ${SMTP_PASSWORD:password}
+    username: ${SMTP_USERNAME:teamsmartdrive@gmail.com}
+    password: ${SMTP_PASSWORD:tilbeticpcdgbzxn}
     properties:
       mail:
         smtp:
           auth: true
           starttls:
             enable: true
+          ssl:
+            trust: smtp.gmail.com
   
   # Security Configuration
   security:
@@ -48,6 +50,12 @@ spring:
       resourceserver:
         jwt:
           issuer-uri: ${JWT_ISSUER_URI:http://auth-service:8085/oauth2/.well-known/oauth-authorization-server}
+
+# Auth Service Integration
+auth:
+  service:
+    internal:
+      key: ${INTERNAL_AUTH_KEY:internal-secret-key-2024}
 
 # User Service Configuration
 app:
