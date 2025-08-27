@@ -123,7 +123,6 @@ public class AuthService {
         profile.put("email", user.getEmail());
         profile.put("firstName", user.getFirstName());
         profile.put("lastName", user.getLastName());
-        profile.put("phoneNumber", user.getPhoneNumber());
         profile.put("bio", user.getBio());
         profile.put("profilePictureUrl", user.getProfilePictureUrl());
         profile.put("isEnabled", user.getIsEnabled());

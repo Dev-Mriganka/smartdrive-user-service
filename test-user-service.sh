@@ -64,7 +64,7 @@ test_user_endpoint "/actuator/health" "GET" "" "" "Health Check"
 echo "👤 STEP 2: USER REGISTRATION"
 echo "============================"
 
-REGISTER_DATA='{"username":"testuser","email":"test@example.com","password":"TestPassword123!","confirmPassword":"TestPassword123!","firstName":"Test","lastName":"User","phoneNumber":"+1234567890","bio":"Test user for SmartDrive"}'
+REGISTER_DATA='{"username":"testuser","email":"test@example.com","password":"TestPassword123!","confirmPassword":"TestPassword123!","firstName":"Test","lastName":"User","bio":"Test user for SmartDrive"}'
 test_user_endpoint "/api/v1/users/register" "POST" "$REGISTER_DATA" "" "User Registration"
 
 # 3. Test Duplicate Registration

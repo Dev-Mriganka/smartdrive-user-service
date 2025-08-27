@@ -44,18 +44,27 @@ spring:
           ssl:
             trust: smtp.gmail.com
   
-  # Security Configuration
-  security:
-    oauth2:
-      resourceserver:
-        jwt:
-          issuer-uri: ${JWT_ISSUER_URI:http://auth-service:8085/oauth2/.well-known/oauth-authorization-server}
+  # Simplified Security Configuration (no OAuth2 Resource Server)
+  # Security is now handled by API Gateway - this service trusts gateway headers
 
-# Auth Service Integration
+# Gateway Integration - User Service trusts API Gateway for security
 auth:
   service:
     internal:
       key: ${INTERNAL_AUTH_KEY:internal-secret-key-2024}
+
+# Gateway signature validation
+gateway:
+  signature:
+    secret: ${GATEWAY_SIGNATURE_SECRET:signature-secret-2024}
+
+# Security settings for infrastructure-first approach
+app:
+  security:
+    gateway-validation:
+      enabled: ${GATEWAY_VALIDATION_ENABLED:true}
+    signature-validation:
+      enabled: ${SIGNATURE_VALIDATION_ENABLED:true}
 
 # User Service Configuration
 app:

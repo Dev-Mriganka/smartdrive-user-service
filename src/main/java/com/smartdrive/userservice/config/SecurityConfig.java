@@ -1,115 +1,74 @@
 package com.smartdrive.userservice.config;
 
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
-import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
-import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
-import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.http.HttpMethod;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 /**
- * Security configuration for User Service
- * Handles JWT validation and authorization
+ * Simplified Security Configuration for User Service
+ * 
+ * This configuration replaces traditional Spring Security with a simpler
+ * approach that trusts the API Gateway for authentication and authorization.
+ * 
+ * Key Changes:
+ * - Removed OAuth2 Resource Server configuration
+ * - Removed SecurityFilterChain (using custom filter instead)
+ * - Kept only password encoder for user registration
+ * - Gateway handles all security concerns
  */
 @Configuration
-@EnableWebSecurity
-@EnableMethodSecurity
 @RequiredArgsConstructor
 @Slf4j
 public class SecurityConfig {
 
-    @Value("${app.security.enabled:true}")
-    private boolean securityEnabled;
+    @Value("${app.security.gateway-validation.enabled:true}")
+    private boolean gatewayValidationEnabled;
 
     /**
-     * Configure security filter chain
+     * Initialize security configuration
      */
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        if (!securityEnabled) {
-            log.info("🔓 Security disabled for testing - allowing all requests");
-            http
-                .csrf(csrf -> csrf.disable())
-                .authorizeHttpRequests(authz -> authz.anyRequest().permitAll());
-            return http.build();
+    public SecurityConfiguration securityConfiguration() {
+        SecurityConfiguration config = new SecurityConfiguration();
+        config.setGatewayValidationEnabled(gatewayValidationEnabled);
+
+        if (gatewayValidationEnabled) {
+            log.info("🔐 Gateway validation enabled - User Service trusts API Gateway for authentication");
+        } else {
+            log.warn("⚠️ Gateway validation disabled - This should only be used for testing!");
         }
-        
-        log.info("🔐 Configuring User Service security filter chain");
-        
-        http
-            // Disable CSRF for API endpoints
-            .csrf(csrf -> csrf.disable())
-            
-            // Configure session management
-            .sessionManagement(session -> session
-                .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
-            )
-            
-            // Configure authorization
-            .authorizeHttpRequests(authz -> authz
-                // Public endpoints
-                .requestMatchers("/actuator/health", "/actuator/info").permitAll()
-                
-                // Registration endpoint (public)
-                .requestMatchers(HttpMethod.POST, "/api/v1/users/register").permitAll()
-                
-                // Email verification endpoint (public)
-                .requestMatchers(HttpMethod.GET, "/api/v1/users/verify-email").permitAll()
-                
-                // Internal endpoints for auth-service
-                .requestMatchers("/api/v1/users/verify-credentials", "/api/v1/users/{username}/token-claims", "/api/v1/users/{username}/profile").permitAll()
 
-                // Admin endpoints
-                .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
-                
-                // All other endpoints require authentication
-                .anyRequest().authenticated()
-            )
-            
-            // Configure OAuth2 resource server
-            .oauth2ResourceServer(oauth2 -> oauth2
-                .jwt(jwt -> jwt
-                    .jwtAuthenticationConverter(jwtAuthenticationConverter())
-                )
-            );
-        
-        log.info("✅ User Service security filter chain configured successfully");
-        return http.build();
+        log.info("✅ Simplified security configuration initialized");
+        return config;
     }
 
     /**
-     * Configure JWT authentication converter
-     */
-    @Bean
-    public JwtAuthenticationConverter jwtAuthenticationConverter() {
-        log.info("🔧 Configuring JWT authentication converter");
-        
-        JwtGrantedAuthoritiesConverter grantedAuthoritiesConverter = new JwtGrantedAuthoritiesConverter();
-        grantedAuthoritiesConverter.setAuthoritiesClaimName("roles");
-        grantedAuthoritiesConverter.setAuthorityPrefix("ROLE_");
-        
-        JwtAuthenticationConverter jwtAuthenticationConverter = new JwtAuthenticationConverter();
-        jwtAuthenticationConverter.setJwtGrantedAuthoritiesConverter(grantedAuthoritiesConverter);
-        
-        log.info("✅ JWT authentication converter configured");
-        return jwtAuthenticationConverter;
-    }
-
-    /**
-     * Configure password encoder
+     * Configure password encoder for user registration
+     * This is still needed for hashing passwords during registration
      */
     @Bean
     public PasswordEncoder passwordEncoder() {
-        log.info("🔧 Configuring password encoder");
-        return new BCryptPasswordEncoder();
+        log.info("🔧 Configuring BCrypt password encoder");
+        return new BCryptPasswordEncoder(12); // Strong hashing rounds
+    }
+
+    /**
+     * Simple configuration holder
+     */
+    public static class SecurityConfiguration {
+        private boolean gatewayValidationEnabled = true;
+
+        public boolean isGatewayValidationEnabled() {
+            return gatewayValidationEnabled;
+        }
+
+        public void setGatewayValidationEnabled(boolean gatewayValidationEnabled) {
+            this.gatewayValidationEnabled = gatewayValidationEnabled;
+        }
     }
 }

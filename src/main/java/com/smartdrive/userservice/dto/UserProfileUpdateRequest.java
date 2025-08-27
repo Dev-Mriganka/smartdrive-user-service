@@ -17,9 +17,6 @@ public class UserProfileUpdateRequest {
     @Size(max = 100, message = "Last name must be less than 100 characters")
     private String lastName;
 
-    @Pattern(regexp = "^\\+?[1-9]\\d{1,14}$", message = "Phone number must be valid")
-    private String phoneNumber;
-
     @Size(max = 500, message = "Bio must be less than 500 characters")
     private String bio;
 
