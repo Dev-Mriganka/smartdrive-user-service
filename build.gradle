@@ -9,6 +9,7 @@ version = '0.0.1-SNAPSHOT'
 
 java {
     sourceCompatibility = '17'
+    targetCompatibility = '17'
 }
 
 configurations {
@@ -23,6 +24,8 @@ repositories {
 
 ext {
     set('springCloudVersion', '2025.0.0')
+    // Add explicit Lombok version
+    set('lombokVersion', '1.18.30')
 }
 
 dependencyManagement {
@@ -57,26 +60,48 @@ dependencies {
     implementation "io.opentelemetry:opentelemetry-exporter-otlp"
     implementation 'io.micrometer:micrometer-registry-prometheus'
     
-            // Logging
-        implementation 'net.logstash.logback:logstash-logback-encoder:7.4'
-        
-        // Swagger/OpenAPI Documentation
-        implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.9'
-        
-        // Lombok
-        compileOnly 'org.projectlombok:lombok'
-        annotationProcessor 'org.projectlombok:lombok'
+    // Logging
+    implementation 'net.logstash.logback:logstash-logback-encoder:7.4'
+    
+    // Swagger/OpenAPI Documentation
+    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.9'
+    
+    // Lombok - FIXED VERSION
+    compileOnly "org.projectlombok:lombok:${lombokVersion}"
+    annotationProcessor "org.projectlombok:lombok:${lombokVersion}"
     
     // Testing
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.springframework.security:spring-security-test'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    
+    // Test Lombok
+    testCompileOnly "org.projectlombok:lombok:${lombokVersion}"
+    testAnnotationProcessor "org.projectlombok:lombok:${lombokVersion}"
 }
 
-tasks.withType(JavaCompile) {
-    options.compilerArgs << "-parameters"
+// IMPORTANT: Enhanced compiler configuration
+tasks.withType(JavaCompile).configureEach {
+    options.compilerArgs += [
+        '-parameters',
+        '-Xlint:unchecked',
+        '-Xlint:deprecation'
+    ]
+    
+    // Ensure annotation processing is enabled
+    options.annotationProcessorPath = configurations.annotationProcessor
 }
 
 tasks.named('test') {
     useJUnitPlatform()
 }
+
+// Clean task to clear generated sources
+tasks.register('cleanLombok') {
+    doLast {
+        delete fileTree(dir: 'build/generated', include: '**/*')
+        delete fileTree(dir: '.gradle', include: '**/generated/**')
+    }
+}
+
+clean.dependsOn cleanLombok
