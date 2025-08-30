@@ -9,7 +9,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
+// NOTE: No Spring Security - API Gateway handles all security
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
@@ -19,12 +19,12 @@ import java.util.Set;
 
 /**
  * Controller for administrative operations
+ * NOTE: API Gateway handles role-based authorization
  */
 @RestController
 @RequestMapping("/api/v1/admin")
 @RequiredArgsConstructor
 @Slf4j
-@PreAuthorize("hasRole('SMARTDRIVE_ADMIN')")
 public class AdminController {
 
     private final UserService userService;

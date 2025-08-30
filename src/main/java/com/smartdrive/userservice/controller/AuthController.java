@@ -169,6 +169,50 @@ public class AuthController {
     }
 
     /**
+     * Get user token claims by user ID for JWT generation (internal endpoint for Authorization Server)
+     */
+    @GetMapping("/id/{userId}/token-claims")
+    public ResponseEntity<Map<String, Object>> getTokenClaimsById(
+            @PathVariable String userId,
+            HttpServletRequest httpRequest) {
+
+        log.info("👤 Token claims request for user ID: {}", userId);
+
+        // Verify internal authentication
+        String internalAuthHeader = httpRequest.getHeader("X-Internal-Auth");
+        if (!authService.validateInternalAuth(internalAuthHeader)) {
+            log.warn("❌ Unauthorized internal request from: {}", getClientIpAddress(httpRequest));
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of(
+                    "error", "unauthorized",
+                    "message", "Invalid internal authentication"));
+        }
+
+        try {
+            TokenClaimsResponse claims = authService.getTokenClaimsById(userId);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("user_id", claims.getUserId());
+            response.put("username", claims.getUsername());
+            response.put("email", claims.getEmail());
+            response.put("first_name", claims.getFirstName());
+            response.put("last_name", claims.getLastName());
+            response.put("roles", claims.getRoles());
+            response.put("is_enabled", claims.getIsEnabled());
+            response.put("is_email_verified", claims.getIsEmailVerified());
+
+            log.info("✅ Token claims retrieved successfully for user ID: {}", userId);
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            log.error("❌ Error retrieving token claims for user ID: {}", userId, e);
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("error", "claims_retrieval_failed");
+            errorResponse.put("message", "Failed to retrieve user token claims by ID");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        }
+    }
+
+    /**
      * Get user profile for userinfo endpoint (internal endpoint for Authorization
      * Server)
      */
@@ -199,6 +243,45 @@ public class AuthController {
             Map<String, Object> errorResponse = new HashMap<>();
             errorResponse.put("error", "profile_retrieval_failed");
             errorResponse.put("message", "Failed to retrieve user profile");
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        }
+    }
+
+    /**
+     * TEMPORARY: Create admin user for testing
+     * TODO: Remove this endpoint in production
+     */
+    @PostMapping("/create-admin")
+    public ResponseEntity<Map<String, Object>> createAdminUser() {
+        log.info("🚀 Creating admin user for testing...");
+        
+        try {
+            UserRegistrationRequest adminRequest = new UserRegistrationRequest();
+            adminRequest.setUsername("admin");
+            adminRequest.setEmail("admin@smartdrive.com");
+            adminRequest.setPassword("Admin123!");
+            adminRequest.setConfirmPassword("Admin123!");
+            adminRequest.setFirstName("System");
+            adminRequest.setLastName("Administrator");
+            adminRequest.setBio("Default system administrator account");
+            
+            // Create user with admin role using direct service calls
+            authService.createAdminUser(adminRequest);
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("message", "Admin user created successfully");
+            response.put("username", "admin");
+            response.put("email", "admin@smartdrive.com");
+            response.put("warning", "Default password is 'Admin123!' - Change this immediately!");
+            
+            log.info("✅ Admin user created successfully");
+            return ResponseEntity.ok(response);
+            
+        } catch (Exception e) {
+            log.error("❌ Error creating admin user", e);
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("error", "admin_creation_failed");
+            errorResponse.put("message", e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
         }
     }

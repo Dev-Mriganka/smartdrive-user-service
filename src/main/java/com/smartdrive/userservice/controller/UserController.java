@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.smartdrive.userservice.dto.PasswordChangeRequest;
 import com.smartdrive.userservice.dto.UserProfileUpdateRequest;
+import com.smartdrive.userservice.dto.UserProfileDTO;
 import com.smartdrive.userservice.model.User;
 import com.smartdrive.userservice.security.BusinessAuthorization;
 import com.smartdrive.userservice.security.UserContext;
@@ -51,7 +52,7 @@ public class UserController {
      * Business Logic: Users can view their own profile, admins can view any profile
      */
     @GetMapping("/profile")
-    public ResponseEntity<User> getProfile() {
+    public ResponseEntity<UserProfileDTO> getProfile() {
         // Get user context from gateway headers (no Spring Security!)
         UserContext userContext = UserContextHolder.getAuthenticatedContext();
 
@@ -62,7 +63,31 @@ public class UserController {
                 userContext.getUsername(), userContext.getRequestId());
 
         User user = userService.getUserByUsername(userContext.getUsername());
-        return ResponseEntity.ok(user);
+        
+        // Convert to DTO to prevent circular reference issues
+        UserProfileDTO profileDTO = UserProfileDTO.builder()
+                .id(user.getId())
+                .username(user.getUsername())
+                .email(user.getEmail())
+                .firstName(user.getFirstName())
+                .lastName(user.getLastName())
+                .bio(user.getBio())
+                .profilePictureUrl(user.getProfilePictureUrl())
+                .isEnabled(user.getIsEnabled())
+                .isAccountNonExpired(user.getIsAccountNonExpired())
+                .isAccountNonLocked(user.getIsAccountNonLocked())
+                .isCredentialsNonExpired(user.getIsCredentialsNonExpired())
+                .isEmailVerified(user.getIsEmailVerified())
+                .twoFactorEnabled(user.getTwoFactorEnabled())
+                .failedLoginAttempts(user.getFailedLoginAttempts())
+                .accountLockedUntil(user.getAccountLockedUntil())
+                .lastLoginAt(user.getLastLoginAt())
+                .createdAt(user.getCreatedAt())
+                .updatedAt(user.getUpdatedAt())
+                .roles(user.getRoleNames())
+                .build();
+                
+        return ResponseEntity.ok(profileDTO);
     }
 
     /**
@@ -185,6 +210,52 @@ public class UserController {
         response.put("requestId", userContext.getRequestId());
 
         return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Get user by email endpoint for social login (internal use by auth service)
+     */
+    @GetMapping("/email/{email}/token-claims")
+    public ResponseEntity<Map<String, Object>> getUserByEmailForTokenClaims(@PathVariable String email) {
+        log.info("🔍 Getting user token claims by email: {}", email);
+        
+        try {
+            Map<String, Object> tokenClaims = userService.getUserTokenClaimsByEmail(email);
+            
+            if (tokenClaims.isEmpty()) {
+                return ResponseEntity.notFound().build();
+            }
+            
+            log.info("✅ Retrieved token claims for email: {}", email);
+            return ResponseEntity.ok(tokenClaims);
+            
+        } catch (Exception e) {
+            log.error("❌ Error getting user token claims by email: {}", email, e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    /**
+     * Create user from Google OAuth2 (internal use by auth service)
+     */
+    @PostMapping("/google-register")
+    public ResponseEntity<Map<String, Object>> createGoogleUser(@RequestBody Map<String, Object> googleUserData) {
+        log.info("👤 Creating user from Google OAuth2: {}", googleUserData.get("email"));
+        
+        try {
+            Map<String, Object> userClaims = userService.createUserFromGoogleProfile(googleUserData);
+            
+            log.info("✅ Created user from Google OAuth2: {}", googleUserData.get("email"));
+            return ResponseEntity.ok(userClaims);
+            
+        } catch (Exception e) {
+            log.error("❌ Error creating user from Google OAuth2: {}", googleUserData.get("email"), e);
+            
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("error", "Failed to create user from Google profile");
+            errorResponse.put("message", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        }
     }
 
     /**

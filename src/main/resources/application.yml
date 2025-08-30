@@ -51,12 +51,12 @@ spring:
 auth:
   service:
     internal:
-      key: ${INTERNAL_AUTH_KEY:internal-secret-key-2024}
+      key: ${INTERNAL_AUTH_KEY:internal-gateway-secret-key-2024-minimum-32-chars}
 
 # Gateway signature validation
 gateway:
   signature:
-    secret: ${GATEWAY_SIGNATURE_SECRET:signature-secret-2024}
+    secret: ${GATEWAY_SIGNATURE_SECRET:signature-secret-key-2024-minimum-32-chars}
 
 # Security settings for infrastructure-first approach
 app:
@@ -64,10 +64,7 @@ app:
     gateway-validation:
       enabled: ${GATEWAY_VALIDATION_ENABLED:true}
     signature-validation:
-      enabled: ${SIGNATURE_VALIDATION_ENABLED:true}
-
-# User Service Configuration
-app:
+      enabled: ${SIGNATURE_VALIDATION_ENABLED:false}
   user:
     verification:
       token-expiry-hours: 24

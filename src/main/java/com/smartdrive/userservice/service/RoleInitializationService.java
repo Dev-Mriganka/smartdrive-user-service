@@ -6,6 +6,7 @@ import com.smartdrive.userservice.repository.RoleRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Service;
 
 import java.util.Arrays;
@@ -18,6 +19,7 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 @Slf4j
+@Order(1) // Run first to ensure roles exist before admin user creation
 public class RoleInitializationService implements CommandLineRunner {
 
     private final RoleRepository roleRepository;

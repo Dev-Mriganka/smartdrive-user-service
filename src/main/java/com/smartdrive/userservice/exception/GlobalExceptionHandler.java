@@ -3,7 +3,7 @@ package com.smartdrive.userservice.exception;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.AccessDeniedException;
+// NOTE: No Spring Security - API Gateway handles all security
 import org.springframework.validation.FieldError;
 
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -74,20 +74,7 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
     }
 
-    @ExceptionHandler(AccessDeniedException.class)
-    public ResponseEntity<ErrorResponse> handleAccessDeniedException(AccessDeniedException ex) {
-        log.error("Access denied: {}", ex.getMessage());
-        
-        ErrorResponse errorResponse = ErrorResponse.builder()
-                .timestamp(LocalDateTime.now())
-                .status(HttpStatus.FORBIDDEN.value())
-                .error("Access Denied")
-                .message("You don't have permission to access this resource")
-                .path("/api/v1/users")
-                .build();
-                
-        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(errorResponse);
-    }
+    // NOTE: No AccessDeniedException handler - API Gateway handles all security
 
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ErrorResponse> handleIllegalArgumentException(IllegalArgumentException ex) {

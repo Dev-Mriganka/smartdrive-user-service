@@ -299,4 +299,80 @@ public class UserService {
         return userRepository.existsByEmail(email);
     }
 
+    /**
+     * Get user token claims by email (for Google OAuth2)
+     */
+    public Map<String, Object> getUserTokenClaimsByEmail(String email) {
+        log.info("🔍 Getting user token claims by email: {}", email);
+        
+        Optional<User> userOpt = userRepository.findByEmail(email);
+        if (userOpt.isEmpty()) {
+            log.warn("⚠️ User not found by email: {}", email);
+            return Map.of();
+        }
+        
+        User user = userOpt.get();
+        
+        Map<String, Object> claims = new HashMap<>();
+        claims.put("user_id", user.getId().toString());
+        claims.put("username", user.getUsername());
+        claims.put("email", user.getEmail());
+        claims.put("first_name", user.getFirstName());
+        claims.put("last_name", user.getLastName());
+        claims.put("roles", user.getRoleNames());
+        claims.put("is_enabled", user.getIsEnabled());
+        claims.put("is_email_verified", user.getIsEmailVerified());
+        
+        log.info("✅ Retrieved token claims for email: {}", email);
+        return claims;
+    }
+
+    /**
+     * Create user from Google OAuth2 profile
+     */
+    @Transactional
+    public Map<String, Object> createUserFromGoogleProfile(Map<String, Object> googleData) {
+        String email = (String) googleData.get("email");
+        log.info("👤 Creating user from Google profile: {}", email);
+        
+        // Check if user already exists
+        if (userRepository.existsByEmail(email)) {
+            log.warn("⚠️ User already exists with email: {}", email);
+            return getUserTokenClaimsByEmail(email);
+        }
+        
+        // Get default role
+        Role defaultRole = roleRepository.findByName(RoleType.SMARTDRIVE_USER)
+                .orElseThrow(() -> new RuntimeException("Default role not found"));
+        
+        // Create user from Google data
+        User user = User.builder()
+                .username((String) googleData.get("username"))
+                .email(email)
+                .password(passwordEncoder.encode("GOOGLE_AUTH_" + System.currentTimeMillis())) // Random password
+                .firstName((String) googleData.get("firstName"))
+                .lastName((String) googleData.get("lastName"))
+                .profilePictureUrl((String) googleData.get("profilePictureUrl"))
+                .bio("Google authenticated user")
+                .isEnabled(true)
+                .isEmailVerified(true) // Google emails are pre-verified
+                .build();
+        
+        // Set roles
+        Set<Role> roles = new HashSet<>();
+        roles.add(defaultRole);
+        user.setRoles(roles);
+        
+        User savedUser = userRepository.save(user);
+        
+        // Update last login
+        savedUser.setLastLoginAt(LocalDateTime.now());
+        userRepository.save(savedUser);
+        
+        log.info("✅ Created user from Google profile: {}", email);
+        
+        // Return token claims
+        return getUserTokenClaimsByEmail(email);
+    }
+
 }

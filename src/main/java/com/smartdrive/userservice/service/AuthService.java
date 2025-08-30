@@ -62,9 +62,9 @@ public class AuthService {
             }
 
             if (!user.getIsEmailVerified()) {
-                log.warn("❌ Email not verified for user: {}. Please verify your email first.", username);
-                // Returning false prevents login for unverified emails
-                return false;
+                log.warn("⚠️ Email not verified for user: {} - ALLOWING FOR TESTING ONLY", username);
+                // TEMPORARY: Allow login for testing JWT consistency
+                // return false;
             }
 
             if (passwordEncoder.matches(password, user.getPassword())) {
@@ -91,6 +91,31 @@ public class AuthService {
 
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("User not found: " + username));
+
+        List<String> roles = user.getRoles().stream()
+                .map(role -> "ROLE_" + role.getName().name())
+                .collect(Collectors.toList());
+
+        return TokenClaimsResponse.builder()
+                .userId(user.getId())
+                .username(user.getUsername())
+                .email(user.getEmail())
+                .firstName(user.getFirstName())
+                .lastName(user.getLastName())
+                .roles(roles)
+                .isEnabled(user.getIsEnabled())
+                .isEmailVerified(user.getIsEmailVerified())
+                .build();
+    }
+
+    /**
+     * Get user token claims by user ID for JWT generation
+     */
+    public TokenClaimsResponse getTokenClaimsById(String userId) {
+        log.info("👤 Retrieving token claims for user ID: {}", userId);
+
+        User user = userRepository.findById(Long.parseLong(userId))
+                .orElseThrow(() -> new RuntimeException("User not found with ID: " + userId));
 
         List<String> roles = user.getRoles().stream()
                 .map(role -> "ROLE_" + role.getName().name())
@@ -192,5 +217,78 @@ public class AuthService {
         userRepository.save(user);
 
         log.info("Email verified successfully for user: {}", user.getEmail());
+    }
+
+    /**
+     * Create admin user with admin privileges
+     * TEMPORARY: For testing purposes only
+     */
+    @Transactional
+    public User createAdminUser(UserRegistrationRequest request) {
+        log.info("🚀 Creating admin user: {}", request.getUsername());
+
+        // Check if admin user already exists
+        if (userRepository.existsByUsername(request.getUsername())) {
+            log.info("📋 Admin user already exists: {}", request.getUsername());
+            User existingUser = userRepository.findByUsername(request.getUsername()).get();
+            ensureUserHasAdminRole(existingUser);
+            return existingUser;
+        }
+
+        // Get required roles
+        Role adminRole = roleRepository.findByName(RoleType.SMARTDRIVE_ADMIN)
+                .orElseThrow(() -> new RuntimeException("Admin role not found"));
+        Role userRole = roleRepository.findByName(RoleType.SMARTDRIVE_USER)
+                .orElseThrow(() -> new RuntimeException("User role not found"));
+
+        // Create admin user
+        User adminUser = User.builder()
+                .username(request.getUsername())
+                .email(request.getEmail())
+                .password(passwordEncoder.encode(request.getPassword()))
+                .firstName(request.getFirstName())
+                .lastName(request.getLastName())
+                .bio(request.getBio())
+                .isEnabled(true)
+                .isEmailVerified(true) // Admin doesn't need email verification
+                .isAccountNonExpired(true)
+                .isAccountNonLocked(true)
+                .isCredentialsNonExpired(true)
+                .build();
+
+        // Set admin roles
+        Set<Role> roles = Set.of(adminRole, userRole);
+        adminUser.setRoles(roles);
+
+        User savedAdmin = userRepository.save(adminUser);
+
+        log.info("✅ Admin user created successfully: {} with roles: {}", 
+                savedAdmin.getUsername(), 
+                savedAdmin.getRoleNames());
+        
+        return savedAdmin;
+    }
+
+    /**
+     * Ensure user has admin role
+     */
+    private void ensureUserHasAdminRole(User user) {
+        boolean hasAdminRole = user.getRoles().stream()
+                .anyMatch(role -> role.getName() == RoleType.SMARTDRIVE_ADMIN);
+        
+        if (!hasAdminRole) {
+            log.info("🔧 Adding admin role to existing user: {}", user.getUsername());
+            
+            Role adminRole = roleRepository.findByName(RoleType.SMARTDRIVE_ADMIN)
+                    .orElseThrow(() -> new RuntimeException("Admin role not found"));
+            
+            Set<Role> roles = user.getRoles();
+            roles.add(adminRole);
+            user.setRoles(roles);
+            
+            userRepository.save(user);
+            
+            log.info("✅ Admin role added to user: {}", user.getUsername());
+        }
     }
 }

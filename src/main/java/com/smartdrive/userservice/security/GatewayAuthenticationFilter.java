@@ -71,6 +71,19 @@ public class GatewayAuthenticationFilter extends OncePerRequestFilter {
 
         String requestPath = request.getRequestURI();
         log.debug("🔍 Processing request: {} {}", request.getMethod(), requestPath);
+        
+        // DEBUG: Log all headers to understand what's being received
+        if (requestPath.contains("/admin")) {
+            log.info("🔍 ADMIN REQUEST HEADERS DEBUG:");
+            request.getHeaderNames().asIterator().forEachRemaining(headerName -> {
+                String headerValue = request.getHeader(headerName);
+                // Don't log the full JWT token for security
+                if ("Authorization".equalsIgnoreCase(headerName)) {
+                    headerValue = headerValue.length() > 20 ? headerValue.substring(0, 20) + "..." : headerValue;
+                }
+                log.info("🔍 Header: {} = {}", headerName, headerValue);
+            });
+        }
 
         try {
             // Skip validation for health checks and public endpoints
@@ -78,6 +91,7 @@ public class GatewayAuthenticationFilter extends OncePerRequestFilter {
                 log.debug("✅ Public endpoint, skipping authentication: {}", requestPath);
                 UserContextHolder.setContext(UserContext.anonymous());
                 filterChain.doFilter(request, response);
+                // Important: exit early so no further validation/logging runs for public endpoints
                 return;
             }
 
@@ -118,6 +132,8 @@ public class GatewayAuthenticationFilter extends OncePerRequestFilter {
         String internalAuth = request.getHeader(HEADER_INTERNAL_AUTH);
         if (internalAuth == null || !internalAuth.equals(internalAuthKey)) {
             log.warn("⚠️ Missing or invalid internal auth header");
+            log.warn("🔍 Expected: '{}'", internalAuthKey);
+            log.warn("🔍 Received: '{}'", internalAuth);
             return false;
         }
 
@@ -224,6 +240,7 @@ public class GatewayAuthenticationFilter extends OncePerRequestFilter {
         return path.startsWith("/actuator/health") ||
                 path.startsWith("/actuator/info") ||
                 path.equals("/api/v1/users/register") ||
+                // path.equals("/api/v1/users/create-admin") || // REMOVED: Now requires authentication
                 path.startsWith("/api/v1/users/verify-email") ||
                 path.startsWith("/swagger-ui") ||
                 path.startsWith("/v3/api-docs");

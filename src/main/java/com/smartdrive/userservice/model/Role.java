@@ -6,7 +6,9 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
+import com.fasterxml.jackson.annotation.JsonBackReference;
 
+import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -39,6 +41,7 @@ public class Role {
 
     @ManyToMany(mappedBy = "roles")
     @Builder.Default
+    @JsonBackReference
     private Set<User> users = new HashSet<>();
 
     @PrePersist

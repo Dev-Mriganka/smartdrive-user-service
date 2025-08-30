@@ -5,19 +5,17 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.core.userdetails.UserDetails;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 
 import java.time.LocalDateTime;
-import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 /**
  * User entity for user management
  * Handles user profiles, authentication, and preferences
+ * 
+ * NOTE: No Spring Security - API Gateway handles all security
  */
 @Entity
 @Table(name = "users")
@@ -25,7 +23,7 @@ import java.util.stream.Collectors;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class User implements UserDetails {
+public class User {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -106,6 +104,7 @@ public class User implements UserDetails {
         joinColumns = @JoinColumn(name = "user_id"),
         inverseJoinColumns = @JoinColumn(name = "role_id")
     )
+    @JsonManagedReference
     @Builder.Default
     private Set<Role> roles = new HashSet<>();
 
@@ -120,19 +119,25 @@ public class User implements UserDetails {
         updatedAt = LocalDateTime.now();
     }
 
-    @Override
-    public Collection<? extends GrantedAuthority> getAuthorities() {
+    /**
+     * Get user roles as string list (for API Gateway integration)
+     */
+    public java.util.List<String> getRoleNames() {
         return roles.stream()
-            .map(role -> new SimpleGrantedAuthority("ROLE_" + role.getName().name()))
-            .collect(Collectors.toList());
+            .map(role -> "ROLE_" + role.getName().name())
+            .collect(java.util.stream.Collectors.toList());
     }
 
-    @Override
+    /**
+     * Check if account is non-expired
+     */
     public boolean isAccountNonExpired() {
         return isAccountNonExpired;
     }
 
-    @Override
+    /**
+     * Check if account is non-locked (considering temporary locks)
+     */
     public boolean isAccountNonLocked() {
         if (accountLockedUntil != null && LocalDateTime.now().isBefore(accountLockedUntil)) {
             return false;
@@ -140,12 +145,16 @@ public class User implements UserDetails {
         return isAccountNonLocked;
     }
 
-    @Override
+    /**
+     * Check if credentials are non-expired
+     */
     public boolean isCredentialsNonExpired() {
         return isCredentialsNonExpired;
     }
 
-    @Override
+    /**
+     * Check if user is enabled
+     */
     public boolean isEnabled() {
         return isEnabled;
     }
