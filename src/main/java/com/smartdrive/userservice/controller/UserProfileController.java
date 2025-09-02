@@ -28,6 +28,23 @@ public class UserProfileController {
     private final UserProfileService userProfileService;
 
     /**
+     * Get current user profile from JWT token
+     */
+    @GetMapping("/profile")
+    @Operation(summary = "Get current user profile from JWT token")
+    public ResponseEntity<UserProfileDTO> getCurrentUserProfile(@RequestHeader("X-User-ID") String userId) {
+        log.info("Getting current user profile for user ID: {}", userId);
+        try {
+            UUID authUserId = UUID.fromString(userId);
+            UserProfileDTO profile = userProfileService.getUserProfile(authUserId);
+            return ResponseEntity.ok(profile);
+        } catch (IllegalArgumentException e) {
+            log.error("Invalid user ID format: {}", userId);
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    /**
      * Get user profile by auth user ID
      */
     @GetMapping("/profile-by-auth-id/{authUserId}")

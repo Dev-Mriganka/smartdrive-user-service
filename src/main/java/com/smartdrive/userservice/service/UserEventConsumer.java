@@ -32,7 +32,7 @@ public class UserEventConsumer {
      * Handle user registration event from Auth Service
      * Creates user profile with duplicated email for performance
      */
-    @SqsListener("${sqs.queue.user-registered:user-registered-queue}")
+    @SqsListener("${aws.sqs.user-registered-queue:smartdrive-user-registered-queue}")
     public void handleUserRegistered(UserRegisteredEvent event) {
         log.info("📧 Received UserRegisteredEvent for user: {}", event.getUserId());
 
@@ -76,7 +76,7 @@ public class UserEventConsumer {
      * Handle email verification event from Auth Service
      * Updates email verification status in User Service
      */
-    @SqsListener("${sqs.queue.email-verified:email-verified-queue}")
+    @SqsListener("${aws.sqs.email-verified-queue:smartdrive-email-verified-queue}")
     public void handleEmailVerified(EmailVerifiedEvent event) {
         log.info("✅ Received EmailVerifiedEvent for user: {} with email: {}",
                 event.getUserId(), event.getEmail());
@@ -109,7 +109,7 @@ public class UserEventConsumer {
      * Handle email change event from Auth Service
      * Updates email in User Service and marks as unverified
      */
-    @SqsListener("${sqs.queue.email-changed:email-changed-queue}")
+    @SqsListener("${aws.sqs.email-changed-queue:smartdrive-email-changed-queue}")
     public void handleEmailChanged(EmailChangedEvent event) {
         log.info("📧 Received EmailChangedEvent for user: {} from {} to {}",
                 event.getUserId(), event.getOldEmail(), event.getNewEmail());
