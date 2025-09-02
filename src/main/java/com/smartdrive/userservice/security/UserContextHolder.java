@@ -24,7 +24,7 @@ public class UserContextHolder {
     public static void setContext(UserContext context) {
         if (context != null) {
             log.debug("Setting user context for user: {} (requestId: {})",
-                    context.getUsername(), context.getRequestId());
+                    context.getEmail(), context.getRequestId());
         }
         contextHolder.set(context);
     }
@@ -76,12 +76,12 @@ public class UserContextHolder {
     }
 
     /**
-     * Get current username
+     * Get current user email
      * 
-     * @return Username or null if not authenticated
+     * @return Email or null if not authenticated
      */
-    public static String getCurrentUsername() {
-        return getContext().getUsername();
+    public static String getCurrentEmail() {
+        return getContext().getEmail();
     }
 
     /**
@@ -121,7 +121,7 @@ public class UserContextHolder {
         UserContext context = contextHolder.get();
         if (context != null) {
             log.debug("Clearing user context for user: {} (requestId: {})",
-                    context.getUsername(), context.getRequestId());
+                    context.getEmail(), context.getRequestId());
         }
         contextHolder.remove();
     }

@@ -13,14 +13,14 @@ public class BusinessAuthorization {
 
         if (context.isAdmin()) {
             log.debug("✅ Admin user {} can view profile for user {}",
-                    context.getUsername(), targetUserId);
+                    context.getEmail(), targetUserId);
             return true;
         }
 
         boolean canAccess = context.canAccessUser(targetUserId);
         log.debug("{} User {} {} view profile for user {}",
                 canAccess ? "✅" : "❌",
-                context.getUsername(),
+                context.getEmail(),
                 canAccess ? "can" : "cannot",
                 targetUserId);
 
@@ -32,14 +32,14 @@ public class BusinessAuthorization {
 
         if (context.isAdmin()) {
             log.debug("✅ Admin user {} can update profile for user {}",
-                    context.getUsername(), targetUserId);
+                    context.getEmail(), targetUserId);
             return true;
         }
 
         boolean canAccess = context.canAccessUser(targetUserId);
         log.debug("{} User {} {} update profile for user {}",
                 canAccess ? "✅" : "❌",
-                context.getUsername(),
+                context.getEmail(),
                 canAccess ? "can" : "cannot",
                 targetUserId);
 
@@ -51,17 +51,17 @@ public class BusinessAuthorization {
 
         if (!context.isAdmin()) {
             log.debug("❌ Non-admin user {} cannot delete user {}",
-                    context.getUsername(), targetUserId);
+                    context.getEmail(), targetUserId);
             return false;
         }
 
         if (context.getUserId().equals(targetUserId)) {
-            log.debug("❌ Admin user {} cannot delete themselves", context.getUsername());
+            log.debug("❌ Admin user {} cannot delete themselves", context.getEmail());
             return false;
         }
 
         log.debug("✅ Admin user {} can delete user {}",
-                context.getUsername(), targetUserId);
+                context.getEmail(), targetUserId);
         return true;
     }
 
@@ -71,7 +71,7 @@ public class BusinessAuthorization {
         boolean isAdmin = context.isAdmin();
         log.debug("{} User {} {} access admin functions",
                 isAdmin ? "✅" : "❌",
-                context.getUsername(),
+                context.getEmail(),
                 isAdmin ? "can" : "cannot");
 
         return isAdmin;
@@ -90,17 +90,17 @@ public class BusinessAuthorization {
 
         if (!context.isAdmin()) {
             log.debug("❌ Non-admin user {} cannot change roles for user {}",
-                    context.getUsername(), targetUserId);
+                    context.getEmail(), targetUserId);
             return false;
         }
 
         if (context.getUserId().equals(targetUserId)) {
-            log.debug("❌ Admin user {} cannot change their own roles", context.getUsername());
+            log.debug("❌ Admin user {} cannot change their own roles", context.getEmail());
             return false;
         }
 
         log.debug("✅ Admin user {} can change roles for user {}",
-                context.getUsername(), targetUserId);
+                context.getEmail(), targetUserId);
         return true;
     }
 

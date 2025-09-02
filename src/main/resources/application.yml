@@ -1,105 +1,62 @@
 server:
-  port: 8086
+  port: 8083
 
 spring:
   application:
     name: user-service
   
-  # Database Configuration
   datasource:
-    url: jdbc:postgresql://${POSTGRES_HOST:postgres-users}:${POSTGRES_PORT:5432}/${POSTGRES_DB:smartdrive_users}
+    url: jdbc:postgresql://${POSTGRES_HOST:postgres-users}:${POSTGRES_PORT:5432}/${POSTGRES_DB:user_service}
     username: ${POSTGRES_USER:smartdrive}
     password: ${POSTGRES_PASSWORD:password}
     driver-class-name: org.postgresql.Driver
   
-  # JPA Configuration
   jpa:
     hibernate:
-      ddl-auto: create-drop
-    show-sql: false
+      ddl-auto: create-drop  # Auto-create tables for new project
+    show-sql: true
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
   
-  # Redis Configuration
+  # Redis Configuration for Caching
   data:
     redis:
       host: ${REDIS_HOST:redis}
       port: ${REDIS_PORT:6379}
       database: ${REDIS_DATABASE:1}
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 0
   
-  # Email Configuration
-  mail:
-    host: smtp.gmail.com
-    port: 587
-    username: ${SMTP_USERNAME:teamsmartdrive@gmail.com}
-    password: ${SMTP_PASSWORD:tilbeticpcdgbzxn}
-    properties:
-      mail:
-        smtp:
-          auth: true
-          starttls:
-            enable: true
-          ssl:
-            trust: smtp.gmail.com
+  # Cache Configuration
+  cache:
+    type: redis
+    redis:
+      time-to-live: 3600000 # 1 hour in milliseconds
+      cache-null-values: false
   
-  # Simplified Security Configuration (no OAuth2 Resource Server)
-  # Security is now handled by API Gateway - this service trusts gateway headers
+  # AWS SQS Configuration for Event-Driven Architecture
+  cloud:
+    aws:
+      region:
+        static: ${AWS_REGION:us-east-1}
+      credentials:
+        access-key: ${AWS_ACCESS_KEY_ID:test}
+        secret-key: ${AWS_SECRET_ACCESS_KEY:test}
+      sqs:
+        endpoint: ${AWS_SQS_ENDPOINT:https://sqs.us-east-1.amazonaws.com}
 
-# Gateway Integration - User Service trusts API Gateway for security
-auth:
-  service:
-    internal:
-      key: ${INTERNAL_AUTH_KEY:internal-gateway-secret-key-2024-minimum-32-chars}
-
-# Gateway signature validation
-gateway:
-  signature:
-    secret: ${GATEWAY_SIGNATURE_SECRET:signature-secret-key-2024-minimum-32-chars}
-
-# Security settings for infrastructure-first approach
-app:
-  security:
-    gateway-validation:
-      enabled: ${GATEWAY_VALIDATION_ENABLED:true}
-    signature-validation:
-      enabled: ${SIGNATURE_VALIDATION_ENABLED:false}
-  user:
-    verification:
-      token-expiry-hours: 24
-      base-url: http://localhost:3000
-    password:
-      min-length: 8
-      require-special-chars: true
-      require-numbers: true
-      require-uppercase: true
-    rate-limiting:
-      registration-per-hour: 5
-      verification-per-hour: 10
-    caching:
-      profile-ttl: 3600 # 1 hour
-      verification-token-ttl: 86400 # 24 hours
-      rate-limit-ttl: 3600 # 1 hour
-
-
-# Management Endpoints
-management:
-  endpoints:
-    web:
-      exposure:
-        include: health,info,metrics
-  endpoint:
-    health:
-      show-details: always
-
-# Logging Configuration
-logging:
-  level:
-    com.smartdrive.userservice: DEBUG
-    org.springframework.security: DEBUG
-  pattern:
-    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+# AWS SQS Queue Names
+aws:
+  sqs:
+    user-registered-queue: ${SQS_USER_REGISTERED_QUEUE:smartdrive-user-registered-queue}
+    email-verified-queue: ${SQS_EMAIL_VERIFIED_QUEUE:smartdrive-email-verified-queue}
+    email-changed-queue: ${SQS_EMAIL_CHANGED_QUEUE:smartdrive-email-changed-queue}
 
 # Eureka Client Configuration
 eureka:
@@ -111,3 +68,39 @@ eureka:
   instance:
     prefer-ip-address: true
     hostname: user-service
+
+# Auth Service Client Configuration
+auth:
+  service:
+    url: ${AUTH_SERVICE_URL:http://auth-service:8082}
+    internal:
+      key: ${AUTH_SERVICE_INTERNAL_KEY:internal-gateway-secret-key-2024-minimum-32-chars}
+
+# Gateway Security Configuration
+gateway:
+  security:
+    signature:
+      secret: ${GATEWAY_SIGNATURE_SECRET:signature-gateway-secret-key-2024-minimum-32-chars}
+
+# Logging Configuration
+logging:
+  level:
+    com.smartdrive.userservice: INFO
+    org.springframework.web: INFO
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+    io.awspring.cloud.sqs: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+
+# Management endpoints
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,caches
+  endpoint:
+    health:
+      show-details: always
+    caches:
+      enabled: true

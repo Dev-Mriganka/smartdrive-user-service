@@ -1,16 +1,22 @@
 package com.smartdrive.userservice.dto;
 
-import lombok.Builder;
-import lombok.Data;
-
 import java.util.List;
 
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+/**
+ * DTO for token claims response
+ */
 @Data
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class TokenClaimsResponse {
-    
-    private Long userId;
-    private String username;
+
+    private String userId;
     private String email;
     private String firstName;
     private String lastName;

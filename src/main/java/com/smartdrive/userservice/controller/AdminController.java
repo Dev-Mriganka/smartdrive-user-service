@@ -1,180 +1,230 @@
 package com.smartdrive.userservice.controller;
 
-import com.smartdrive.userservice.exception.UserNotFoundException;
-import com.smartdrive.userservice.model.Role;
-import com.smartdrive.userservice.model.Role.RoleType;
-import com.smartdrive.userservice.model.User;
-import com.smartdrive.userservice.service.UserService;
+import com.smartdrive.userservice.dto.UserProfileDTO;
+import com.smartdrive.userservice.security.BusinessAuthorization;
+import com.smartdrive.userservice.service.UserProfileService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpStatus;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
-// NOTE: No Spring Security - API Gateway handles all security
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 /**
- * Controller for administrative operations
- * NOTE: API Gateway handles role-based authorization
+ * Admin Controller for user management
+ * Implements admin endpoints as per sequence diagram
  */
 @RestController
 @RequestMapping("/api/v1/admin")
 @RequiredArgsConstructor
 @Slf4j
+@Tag(name = "Admin Management", description = "APIs for admin user management")
 public class AdminController {
 
-    private final UserService userService;
+    private final UserProfileService userProfileService;
+    private final BusinessAuthorization businessAuth;
 
     /**
-     * Get all users
+     * Get all users with pagination (admin only)
+     * Implements fast local queries as per sequence diagram
+     * GET /api/admin/users?page=1&limit=50
      */
     @GetMapping("/users")
-    public ResponseEntity<List<User>> getAllUsers() {
-        log.info("👥 Admin requesting all users");
+    @Operation(summary = "Get all users with pagination (admin only)")
+    public ResponseEntity<Map<String, Object>> getAllUsers(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int limit,
+            @RequestParam(defaultValue = "createdAt") String sortBy,
+            @RequestParam(defaultValue = "desc") String sortDir) {
         
-        List<User> users = userService.getAllUsers();
+        log.info("📋 Admin user list request - page: {}, limit: {}", page, limit);
         
-        log.info("✅ Retrieved {} users successfully", users.size());
-        return ResponseEntity.ok(users);
-    }
-
-    /**
-     * Get user statistics
-     */
-    @GetMapping("/users/statistics")
-    public ResponseEntity<Map<String, Object>> getUserStatistics() {
-        log.info("📊 Admin requesting user statistics");
-        
-        Map<String, Object> statistics = userService.getUserStatistics();
-        
-        log.info("✅ User statistics retrieved successfully");
-        return ResponseEntity.ok(statistics);
-    }
-
-    /**
-     * Toggle user account status
-     */
-    @PutMapping("/users/{username}/toggle")
-    public ResponseEntity<Map<String, Object>> toggleUserAccount(@PathVariable String username) {
-        log.info("🔄 Admin toggling user account: {}", username);
+        // Check admin privileges
+        businessAuth.requireAdmin();
         
         try {
-            User user = userService.toggleUserAccount(username);
+            // Create pageable with sorting
+            Sort.Direction direction = sortDir.equalsIgnoreCase("desc") ? 
+                Sort.Direction.DESC : Sort.Direction.ASC;
+            Pageable pageable = PageRequest.of(page, limit, Sort.by(direction, sortBy));
             
+            // Get paginated users (fast local query)
+            Page<UserProfileDTO> usersPage = userProfileService.getAllUsersWithPagination(pageable);
+            
+            // Prepare response
             Map<String, Object> response = new HashMap<>();
-            response.put("message", "User account status updated successfully");
-            response.put("username", user.getUsername());
-            response.put("enabled", user.getIsEnabled());
+            response.put("users", usersPage.getContent());
+            response.put("totalElements", usersPage.getTotalElements());
+            response.put("totalPages", usersPage.getTotalPages());
+            response.put("currentPage", usersPage.getNumber());
+            response.put("pageSize", usersPage.getSize());
+            response.put("hasNext", usersPage.hasNext());
+            response.put("hasPrevious", usersPage.hasPrevious());
             
-            log.info("✅ User account status updated: {} (enabled: {})", username, user.getIsEnabled());
+            log.info("✅ Admin user list retrieved - {} users on page {}", 
+                    usersPage.getContent().size(), page);
+            
             return ResponseEntity.ok(response);
             
-        } catch (UserNotFoundException e) {
-            log.warn("❌ User not found: {}", username);
-            Map<String, Object> errorResponse = new HashMap<>();
-            errorResponse.put("error", "User not found");
-            errorResponse.put("message", e.getMessage());
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
-            
         } catch (Exception e) {
-            log.error("❌ Error toggling user account: {}", username, e);
+            log.error("❌ Error retrieving admin user list", e);
             Map<String, Object> errorResponse = new HashMap<>();
-            errorResponse.put("error", "Failed to toggle user account");
-            errorResponse.put("message", e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+            errorResponse.put("error", "server_error");
+            errorResponse.put("message", "Failed to retrieve user list");
+            return ResponseEntity.status(500).body(errorResponse);
         }
     }
 
     /**
-     * Assign roles to user
+     * Search users by email or name (admin only)
+     * GET /api/admin/users/search?email=john@example.com
      */
-    @PutMapping("/users/{username}/roles")
-    public ResponseEntity<Map<String, Object>> assignRolesToUser(
-            @PathVariable String username,
-            @RequestBody Set<RoleType> roleTypes) {
+    @GetMapping("/users/search")
+    @Operation(summary = "Search users by email or name (admin only)")
+    public ResponseEntity<List<UserProfileDTO>> searchUsers(
+            @RequestParam(required = false) String email,
+            @RequestParam(required = false) String name) {
         
-        log.info("🎭 Admin assigning roles to user: {} - Roles: {}", username, roleTypes);
+        log.info("🔍 Admin user search - email: {}, name: {}", email, name);
+        
+        // Check admin privileges
+        businessAuth.requireAdmin();
         
         try {
-            User user = userService.assignRoles(username, roleTypes);
+            List<UserProfileDTO> users;
             
-            Map<String, Object> response = new HashMap<>();
-            response.put("message", "Roles assigned successfully");
-            response.put("username", user.getUsername());
-            response.put("assignedRoles", roleTypes);
+            if (email != null && !email.trim().isEmpty()) {
+                users = userProfileService.searchUsersByEmail(email);
+                log.info("✅ Admin search by email found {} users", users.size());
+            } else if (name != null && !name.trim().isEmpty()) {
+                users = userProfileService.searchUsersByName(name);
+                log.info("✅ Admin search by name found {} users", users.size());
+            } else {
+                return ResponseEntity.badRequest().build();
+            }
             
-            log.info("✅ Roles assigned successfully to user: {}", username);
-            return ResponseEntity.ok(response);
-            
-        } catch (UserNotFoundException e) {
-            log.warn("❌ User not found: {}", username);
-            Map<String, Object> errorResponse = new HashMap<>();
-            errorResponse.put("error", "User not found");
-            errorResponse.put("message", e.getMessage());
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
+            return ResponseEntity.ok(users);
             
         } catch (Exception e) {
-            log.error("❌ Error assigning roles to user: {}", username, e);
-            Map<String, Object> errorResponse = new HashMap<>();
-            errorResponse.put("error", "Failed to assign roles");
-            errorResponse.put("message", e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+            log.error("❌ Error in admin user search", e);
+            return ResponseEntity.status(500).build();
         }
     }
 
     /**
-     * Delete user
+     * Get user statistics (admin only)
+     * GET /api/admin/users/stats
      */
-    @DeleteMapping("/users/{username}")
-    public ResponseEntity<Map<String, Object>> deleteUser(@PathVariable String username) {
-        log.info("🗑️ Admin deleting user: {}", username);
+    @GetMapping("/users/stats")
+    @Operation(summary = "Get user statistics (admin only)")
+    public ResponseEntity<Map<String, Object>> getUserStats() {
+        log.info("📊 Admin user statistics request");
+        
+        // Check admin privileges
+        businessAuth.requireAdmin();
         
         try {
-            userService.deleteUser(username);
+            Map<String, Object> stats = userProfileService.getUserStatistics();
             
-            Map<String, Object> response = new HashMap<>();
-            response.put("message", "User deleted successfully");
-            response.put("username", username);
-            
-            log.info("✅ User deleted successfully: {}", username);
-            return ResponseEntity.ok(response);
-            
-        } catch (UserNotFoundException e) {
-            log.warn("❌ User not found: {}", username);
-            Map<String, Object> errorResponse = new HashMap<>();
-            errorResponse.put("error", "User not found");
-            errorResponse.put("message", e.getMessage());
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(errorResponse);
+            log.info("✅ Admin user statistics retrieved");
+            return ResponseEntity.ok(stats);
             
         } catch (Exception e) {
-            log.error("❌ Error deleting user: {}", username, e);
+            log.error("❌ Error retrieving user statistics", e);
             Map<String, Object> errorResponse = new HashMap<>();
-            errorResponse.put("error", "Failed to delete user");
-            errorResponse.put("message", e.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+            errorResponse.put("error", "server_error");
+            errorResponse.put("message", "Failed to retrieve user statistics");
+            return ResponseEntity.status(500).body(errorResponse);
         }
     }
 
     /**
-     * Get user by username (admin view)
+     * Update user status (admin only)
+     * PUT /api/admin/users/{userId}/status
      */
-    @GetMapping("/users/{username}")
-    public ResponseEntity<User> getUserByUsername(@PathVariable String username) {
-        log.info("👤 Admin getting user by username: {}", username);
+    @PutMapping("/users/{userId}/status")
+    @Operation(summary = "Update user status (admin only)")
+    public ResponseEntity<Map<String, Object>> updateUserStatus(
+            @PathVariable String userId,
+            @RequestBody Map<String, Object> statusUpdate) {
+        
+        log.info("🔧 Admin user status update - userId: {}", userId);
+        
+        // Check admin privileges
+        businessAuth.requireAdmin();
         
         try {
-            User user = userService.getUserByUsername(username);
+            Boolean enabled = (Boolean) statusUpdate.get("enabled");
+            String reason = (String) statusUpdate.get("reason");
             
-            log.info("✅ User retrieved successfully: {}", username);
+            if (enabled == null) {
+                Map<String, Object> errorResponse = new HashMap<>();
+                errorResponse.put("error", "invalid_request");
+                errorResponse.put("message", "enabled field is required");
+                return ResponseEntity.badRequest().body(errorResponse);
+            }
+            
+            UserProfileDTO updatedUser = userProfileService.updateUserStatus(userId, enabled, reason);
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "User status updated successfully");
+            response.put("user", updatedUser);
+            
+            log.info("✅ Admin user status updated - userId: {}, enabled: {}", userId, enabled);
+            return ResponseEntity.ok(response);
+            
+        } catch (Exception e) {
+            log.error("❌ Error updating user status", e);
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("error", "server_error");
+            errorResponse.put("message", "Failed to update user status");
+            return ResponseEntity.status(500).body(errorResponse);
+        }
+    }
+
+    /**
+     * Get user details by ID (admin only)
+     * GET /api/admin/users/{userId}
+     */
+    @GetMapping("/users/{userId}")
+    @Operation(summary = "Get user details by ID (admin only)")
+    public ResponseEntity<UserProfileDTO> getUserById(@PathVariable String userId) {
+        log.info("👤 Admin get user by ID - userId: {}", userId);
+        
+        // Check admin privileges
+        businessAuth.requireAdmin();
+        
+        try {
+            UserProfileDTO user = userProfileService.getUserProfileById(userId);
+            
+            log.info("✅ Admin retrieved user details - userId: {}", userId);
             return ResponseEntity.ok(user);
             
-        } catch (UserNotFoundException e) {
-            log.warn("❌ User not found: {}", username);
-            return ResponseEntity.notFound().build();
+        } catch (Exception e) {
+            log.error("❌ Error retrieving user by ID", e);
+            return ResponseEntity.status(404).build();
         }
+    }
+
+    /**
+     * Health check for admin endpoints
+     */
+    @GetMapping("/health")
+    @Operation(summary = "Admin health check")
+    public ResponseEntity<Map<String, Object>> health() {
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", "healthy");
+        response.put("service", "admin-controller");
+        response.put("timestamp", System.currentTimeMillis());
+        return ResponseEntity.ok(response);
     }
 }

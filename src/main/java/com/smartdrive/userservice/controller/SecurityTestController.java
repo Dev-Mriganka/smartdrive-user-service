@@ -37,13 +37,12 @@ public class SecurityTestController {
         Map<String, Object> response = new HashMap<>();
         response.put("message", "Access granted to protected endpoint");
         response.put("userId", userContext.getUserId());
-        response.put("username", userContext.getUsername());
         response.put("email", userContext.getEmail());
         response.put("roles", userContext.getRoles());
         response.put("requestId", userContext.getRequestId());
         response.put("authenticated", userContext.isAuthenticated());
         
-        log.info("✅ Protected endpoint accessed by user: {}", userContext.getUsername());
+        log.info("✅ Protected endpoint accessed by user: {}", userContext.getEmail());
         return ResponseEntity.ok(response);
     }
     
@@ -62,7 +61,7 @@ public class SecurityTestController {
         
         if (userContext.isAuthenticated()) {
             response.put("userId", userContext.getUserId());
-            response.put("username", userContext.getUsername());
+            response.put("email", userContext.getEmail());
         }
         
         return ResponseEntity.ok(response);
@@ -87,11 +86,11 @@ public class SecurityTestController {
         Map<String, Object> response = new HashMap<>();
         response.put("message", "Admin endpoint accessed successfully");
         response.put("userId", userContext.getUserId());
-        response.put("username", userContext.getUsername());
+        response.put("email", userContext.getEmail());
         response.put("isAdmin", userContext.isAdmin());
         response.put("requestId", userContext.getRequestId());
         
-        log.info("✅ Admin endpoint accessed by user: {}", userContext.getUsername());
+        log.info("✅ Admin endpoint accessed by user: {}", userContext.getEmail());
         return ResponseEntity.ok(response);
     }
     
@@ -117,10 +116,10 @@ public class SecurityTestController {
         response.put("message", "User data access granted");
         response.put("targetUserId", userId);
         response.put("accessedBy", userContext.getUserId());
-        response.put("accessorUsername", userContext.getUsername());
+        response.put("accessorEmail", userContext.getEmail());
         response.put("requestId", userContext.getRequestId());
         
-        log.info("✅ User data accessed: {} by {}", userId, userContext.getUsername());
+        log.info("✅ User data accessed: {} by {}", userId, userContext.getEmail());
         return ResponseEntity.ok(response);
     }
     
@@ -138,7 +137,6 @@ public class SecurityTestController {
         if (userContext.isAuthenticated()) {
             response.put("authenticated", true);
             response.put("userId", userContext.getUserId());
-            response.put("username", userContext.getUsername());
             response.put("email", userContext.getEmail());
             response.put("roles", userContext.getRoles());
             response.put("requestId", userContext.getRequestId());
@@ -163,7 +161,7 @@ public class SecurityTestController {
         
         Map<String, Object> response = new HashMap<>();
         response.put("userId", userContext.getUserId());
-        response.put("username", userContext.getUsername());
+        response.put("email", userContext.getEmail());
         response.put("allRoles", userContext.getRoles());
         
         if (role != null) {

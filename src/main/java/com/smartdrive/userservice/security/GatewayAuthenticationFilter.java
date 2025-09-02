@@ -40,7 +40,6 @@ public class GatewayAuthenticationFilter extends OncePerRequestFilter {
 
     // Header names set by API Gateway
     private static final String HEADER_USER_ID = "X-User-ID";
-    private static final String HEADER_USERNAME = "X-User-Username";
     private static final String HEADER_EMAIL = "X-User-Email";
     private static final String HEADER_ROLES = "X-User-Roles";
     private static final String HEADER_REQUEST_ID = "X-Request-ID";
@@ -215,7 +214,6 @@ public class GatewayAuthenticationFilter extends OncePerRequestFilter {
      */
     private UserContext extractUserContext(HttpServletRequest request) {
         String userId = request.getHeader(HEADER_USER_ID);
-        String username = request.getHeader(HEADER_USERNAME);
         String email = request.getHeader(HEADER_EMAIL);
         String roles = request.getHeader(HEADER_ROLES);
         String requestId = request.getHeader(HEADER_REQUEST_ID);
@@ -227,8 +225,8 @@ public class GatewayAuthenticationFilter extends OncePerRequestFilter {
         }
 
         // Create authenticated context
-        UserContext context = UserContext.authenticated(userId, username, email, roles, requestId);
-        log.debug("🔐 Created authenticated context for user: {} with roles: {}", username, roles);
+        UserContext context = UserContext.authenticated(userId, email, roles, requestId);
+        log.debug("🔐 Created authenticated context for user: {} with roles: {}", email, roles);
 
         return context;
     }
@@ -242,6 +240,8 @@ public class GatewayAuthenticationFilter extends OncePerRequestFilter {
                 path.equals("/api/v1/users/register") ||
                 // path.equals("/api/v1/users/create-admin") || // REMOVED: Now requires authentication
                 path.startsWith("/api/v1/users/verify-email") ||
+                path.startsWith("/api/v1/users/profile/email") ||
+                path.startsWith("/api/v1/users/exists/") ||
                 path.startsWith("/swagger-ui") ||
                 path.startsWith("/v3/api-docs");
     }

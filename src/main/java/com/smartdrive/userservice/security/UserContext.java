@@ -30,12 +30,7 @@ public class UserContext {
     private String userId;
 
     /**
-     * Username for display and logging
-     */
-    private String username;
-
-    /**
-     * User's email address
+     * User's email address (primary identifier)
      */
     private String email;
 
@@ -133,14 +128,12 @@ public class UserContext {
      * Create authenticated context from gateway headers
      * 
      * @param userId    User ID
-     * @param username  Username
-     * @param email     Email
+     * @param email     Email (primary identifier)
      * @param roles     Comma-separated roles
      * @param requestId Request correlation ID
      * @return UserContext for authenticated user
      */
-    public static UserContext authenticated(String userId, String username,
-            String email, String roles, String requestId) {
+    public static UserContext authenticated(String userId, String email, String roles, String requestId) {
         Set<String> roleSet = new HashSet<>();
         if (roles != null && !roles.trim().isEmpty()) {
             String[] roleArray = roles.split(",");
@@ -151,7 +144,6 @@ public class UserContext {
 
         return UserContext.builder()
                 .userId(userId)
-                .username(username)
                 .email(email)
                 .roles(roleSet)
                 .requestId(requestId)
@@ -161,7 +153,7 @@ public class UserContext {
 
     @Override
     public String toString() {
-        return String.format("UserContext{userId='%s', username='%s', authenticated=%s, roles=%s}",
-                userId, username, authenticated, roles);
+        return String.format("UserContext{userId='%s', email='%s', authenticated=%s, roles=%s}",
+                userId, email, authenticated, roles);
     }
 }

@@ -1,35 +1,36 @@
 package com.smartdrive.userservice.dto;
 
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
+
+import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.List;
+import java.util.UUID;
 
 /**
- * DTO for user profile responses to prevent circular reference issues
+ * DTO for user profile responses in the hybrid approach
+ * Contains user profile and business data (no authentication data)
  */
 @Data
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class UserProfileDTO {
-    private Long id;
-    private String username;
+    private UUID id;
+    private UUID authUserId;
     private String email;
+    private Boolean emailVerified;
     private String firstName;
     private String lastName;
+    private String displayName;
+    private String avatarUrl;
     private String bio;
-    private String profilePictureUrl;
-    private Boolean isEnabled;
-    private Boolean isAccountNonExpired;
-    private Boolean isAccountNonLocked;
-    private Boolean isCredentialsNonExpired;
-    private Boolean isEmailVerified;
-    private Boolean twoFactorEnabled;
-    private Integer failedLoginAttempts;
-    private LocalDateTime accountLockedUntil;
-    private LocalDateTime lastLoginAt;
+    private String phone;
+    private LocalDate dateOfBirth;
+    private String timezone;
+    private String language;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
-    
-    // Simple role names list instead of full Role objects
-    private List<String> roles;
 }
